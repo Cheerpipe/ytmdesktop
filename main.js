@@ -1437,6 +1437,15 @@ if (!gotTheLock) {
     })
 
     app.on('quit', function () {
+        settingsProvider.set('window-maximized', true)
+        settingsProvider.set('window-size', {
+                        width: 1920,
+                        height: 1080,
+        })
+        settingsProvider.set('window-position', {
+            x: 0,
+            y: 0,
+        })          
         tray.quit()
     })
 }
