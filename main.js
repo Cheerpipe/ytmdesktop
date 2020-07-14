@@ -277,10 +277,10 @@ function createWindow() {
 /*
     mainWindow.on('show', function () {
         globalShortcut.unregister('CmdOrCtrl+M')
-*/
+
         mediaControl.createThumbar(mainWindow, infoPlayerProvider.getAllInfo())
     })
-
+*/
     view.webContents.on('new-window', function (event, url) {
         event.preventDefault()
         shell.openExternal(url)
