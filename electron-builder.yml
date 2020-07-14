@@ -18,14 +18,14 @@ electronDownload:
   cache: '.cache/electron-builder/'
 
 win:
-  icon: src/assets
+  icon: src/assets/favicon.ico
   publish:
     provider: generic
     url: 'https://dl.ytmdesktop.app/win'
     channel: latest
 
 linux:
-  icon: src/assets
+  icon: src/assets/favicon.png
   category: AudioVideo
   publish:
     provider: generic
