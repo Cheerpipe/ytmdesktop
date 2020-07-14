@@ -22,14 +22,14 @@ electronDownload:
   cache: '.cache/electron-builder/'
 
 win:
-  icon: src/assets/favicon.ico
+  icon: src/assets
   publish:
     provider: generic
     url: 'https://dl.ytmdesktop.app/win'
     channel: latest
 
 mac:
-  icon: src/assets/favicon.icns
+  icon: src/assets
   category: public.app-category.music
   darkModeSupport: true
   target:
@@ -40,7 +40,7 @@ mac:
     channel: latest
 
 linux:
-  icon: src/assets/favicon.png
+  icon: src/assets
   category: AudioVideo
   publish:
     provider: generic
