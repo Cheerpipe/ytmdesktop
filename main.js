@@ -274,10 +274,10 @@ function createWindow() {
         // when you should delete the corresponding element.
         mainWindow = null
     })
-
+/*
     mainWindow.on('show', function () {
         globalShortcut.unregister('CmdOrCtrl+M')
-
+*/
         mediaControl.createThumbar(mainWindow, infoPlayerProvider.getAllInfo())
     })
 
@@ -519,6 +519,7 @@ function createWindow() {
     })
 
     // LOCAL
+/*    
     electronLocalshortcut.register(
         view,
         isMac() ? 'Cmd+,' : 'CmdOrCtrl+S',
@@ -526,11 +527,12 @@ function createWindow() {
             ipcMain.emit('window', { command: 'show-settings' })
         }
     )
-
+*/
+/*
     electronLocalshortcut.register(view, 'CmdOrCtrl+M', () => {
         ipcMain.emit('window', { command: 'show-miniplayer' })
     })
-
+*/
     // GLOBAL
     globalShortcut.register('MediaPlayPause', function () {
         if (settingsProvider.get('settings-enable-double-tapping-show-hide')) {
@@ -566,7 +568,7 @@ function createWindow() {
     globalShortcut.register('MediaNextTrack', function () {
         mediaControl.nextTrack(view)
     })
-
+/*
     globalShortcut.register('CmdOrCtrl+Shift+Space', function () {
         mediaControl.playPauseTrack(view)
     })
@@ -586,7 +588,7 @@ function createWindow() {
     globalShortcut.register('CmdOrCtrl+Shift+numsub', function () {
         mediaControl.downVote(view)
     })
-
+*/
     ipcMain.on('restore-main-window', function () {
         mainWindow.show()
     })
@@ -910,12 +912,13 @@ function createWindow() {
             })
 
             mainWindow.hide()
-
+/*
             globalShortcut.register('CmdOrCtrl+M', function () {
                 miniplayer.close()
                 miniplayer = null
                 mainWindow.show()
             })
+*/            
         }
     }
 
