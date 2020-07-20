@@ -707,6 +707,18 @@ function createWindow() {
             case 'media-queue-set':
                 mediaControl.selectQueueItem(view, value)
                 break
+
+            case 'media-repeat':
+                mediaControl.repeat(view)
+                break
+
+            case 'media-shuffle':
+                mediaControl.shuffle(view)
+                break
+
+            case 'media-add-library':
+                mediaControl.addToLibrary(view)
+                break
         }
     })
 
@@ -1108,8 +1120,8 @@ function createWindow() {
             backgroundColor: '#232323',
             width: 600,
             minWidth: 600,
-            height: 300,
-            minHeight: 300,
+            height: 220,
+            minHeight: 220,
             autoHideMenuBar: false,
             skipTaskbar: false,
             webPreferences: {
