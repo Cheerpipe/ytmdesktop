@@ -39,8 +39,10 @@ settingsProvider.setInitialValue('settings-accelerators', {
     'media-play-pause': 'CmdOrCtrl+Shift+Space',
     'media-track-next': 'CmdOrCtrl+Shift+PageUp',
     'media-track-previous': 'CmdOrCtrl+Shift+PageDown',
-    'media-track-like': 'CmdOrCtrl+Shift+numadd',
-    'media-track-dislike': 'CmdOrCtrl+Shift+numsub',
+    'media-track-like': 'CmdOrCtrl+Shift+L',
+    'media-track-dislike': 'CmdOrCtrl+Shift+D',
+    'media-volume-up': 'CmdOrCtrl+Shift+Up',
+    'media-volume-down': 'CmdOrCtrl+Shift+Down',
 })
 
 settingsProvider.setInitialValue('has-updated', false)
@@ -51,3 +53,8 @@ settingsProvider.setInitialValue('discord-presence-settings', {
     time: true,
     hideIdle: true,
 })
+
+settingsProvider.setInitialValue(
+    'settings-disable-hardware-acceleration',
+    false
+)

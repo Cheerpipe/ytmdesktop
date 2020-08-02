@@ -1,7 +1,7 @@
-const { remote, ipcRenderer: ipc, shell } = require('electron')
+const { remote, ipcRenderer: ipc, shell, ipcMain } = require('electron')
 const settingsProvider = require('../../providers/settingsProvider')
 const __ = require('../../providers/translateProvider')
-const { isLinux } = require('../../utils/systemInfo')
+const { isLinux, isMac } = require('../../utils/systemInfo')
 const fs = require('fs')
 
 const elementSettingsCompanionApp = document.getElementById(
@@ -27,7 +27,10 @@ if (isLinux()) {
 }
 
 const audioOutputSelect = document.querySelector('#settings-app-audio-output')
-let audioDevices
+
+let settingsAccelerators = settingsProvider.get('settings-accelerators')
+
+let audioDevices, typeAcceleratorSelected, keyBindings
 
 function loadAudioOutputList() {
     return navigator.mediaDevices.enumerateDevices()
@@ -111,6 +114,11 @@ document.addEventListener('DOMContentLoaded', function () {
     })
     initElement('settings-rainmeter-web-now-playing', 'click')
     initElement('settings-enable-double-tapping-show-hide', 'click')
+    initElement(
+        'settings-disable-hardware-acceleration',
+        'click',
+        showRelaunchButton
+    )
 
     initElement('settings-miniplayer-always-top', 'click')
     initElement('settings-miniplayer-always-show-controls', 'click')
@@ -160,7 +168,7 @@ if (elementBtnDiscordSettings) {
 
 if (elementBtnOpenCompanionServer) {
     elementBtnOpenCompanionServer.addEventListener('click', function () {
-        shell.openExternal(`https://find.ytmdesktop.app`)
+        shell.openExternal(`http://localhost:9863`)
     })
 }
 
@@ -179,6 +187,7 @@ if (process.platform !== 'darwin') {
 
 loadSettings()
 __.loadi18n()
+loadCustomKeys()
 
 function showRelaunchButton() {
     elementBtnAppRelaunch.classList.remove('hide')
@@ -284,34 +293,203 @@ function readLocales() {
 function mInit() {
     M.FormSelect.init(document.querySelectorAll('select'), {})
     M.Tabs.init(document.getElementsByClassName('tabs')[0], {})
+
+    var elems = document.querySelectorAll('.modal')
+    M.Modal.init(elems, {})
+}
+
+function replaceAcceleratorText(text) {
+    text = text.replace(/\+/g, ' + ')
+
+    if (text.indexOf('CmdOrCtrl') != -1) {
+        if (isMac()) {
+            text = text.replace('CmdOrCtrl', 'Cmd')
+        } else {
+            text = text.replace('CmdOrCtrl', 'Ctrl')
+        }
+    }
+
+    text = text.replace('numadd', '+')
+
+    text = text.replace('numsub', '-')
+
+    text = text.replace('nummult', '*')
+
+    text = text.replace('numdiv', '/')
+
+    return text
 }
 
 function validateKey(e) {
+    console.log(e)
+
     if (e.key == ' ') return 'Space'
+
+    if (e.code == 'NumpadEnter') return 'Enter'
+
+    if (e.code == 'NumpadAdd') return 'numadd'
+
+    if (e.code == 'NumpadSubtract') return 'numsub'
+
+    if (e.code == 'NumpadDecimal') return 'numdec'
+
+    if (e.code == 'NumpadMultiply') return 'nummult'
+
+    if (e.code == 'NumpadDivide') return 'numdiv'
+
+    if (e.code == 'ArrowUp') return 'Up'
+
+    if (e.code == 'ArrowDown') return 'Down'
+
+    if (e.code == 'ArrowLeft') return 'Left'
+
+    if (e.code == 'ArrowRight') return 'Right'
+
+    if (e.keyCode >= 65 && e.keyCode <= 90) {
+        return e.key.toUpperCase()
+    }
+
     return e.key
 }
 
 function preventSpecialKeys(e) {
-    return !(e.key == 'Control' || e.key == 'Alt' || e.key == 'Shift')
+    return !(
+        e.key == 'Command' ||
+        e.key == 'Control' ||
+        e.key == 'Alt' ||
+        e.key == 'Shift' ||
+        e.key == 'AltGraph'
+    )
 }
 
-document.addEventListener('keyup', function (e) {
-    if (preventSpecialKeys(e)) {
-        let keyBindings = ''
+document
+    .querySelector('#modalEditAccelerator')
+    .addEventListener('keyup', function (e) {
+        if (preventSpecialKeys(e)) {
+            keyBindings = ''
 
-        if (e.ctrlKey) {
-            keyBindings += 'CmdOrCtrl+'
+            if (e.ctrlKey) {
+                keyBindings += 'CmdOrCtrl+'
+            }
+
+            if (e.altKey) {
+                keyBindings += 'Alt+'
+            }
+
+            if (e.shiftKey) {
+                keyBindings += 'Shift+'
+            }
+
+            keyBindings += validateKey(e)
+            document.querySelector(
+                '#modalEditAcceleratorKeys'
+            ).innerText = replaceAcceleratorText(keyBindings)
         }
+    })
 
-        if (e.altKey) {
-            keyBindings += 'Alt+'
-        }
+function loadCustomKeys() {
+    document.querySelector(
+        '#settings-accelerators_media-play-pause'
+    ).innerText = replaceAcceleratorText(
+        settingsAccelerators['media-play-pause']
+    )
+    document.querySelector(
+        '#settings-accelerators_media-track-next'
+    ).innerText = replaceAcceleratorText(
+        settingsAccelerators['media-track-next']
+    )
+    document.querySelector(
+        '#settings-accelerators_media-track-previous'
+    ).innerText = replaceAcceleratorText(
+        settingsAccelerators['media-track-previous']
+    )
+    document.querySelector(
+        '#settings-accelerators_media-track-like'
+    ).innerText = replaceAcceleratorText(
+        settingsAccelerators['media-track-like']
+    )
+    document.querySelector(
+        '#settings-accelerators_media-track-dislike'
+    ).innerText = replaceAcceleratorText(
+        settingsAccelerators['media-track-dislike']
+    )
 
-        if (e.shiftKey) {
-            keyBindings += 'Shift+'
-        }
+    document.querySelector(
+        '#settings-accelerators_media-volume-up'
+    ).innerText = replaceAcceleratorText(
+        settingsAccelerators['media-volume-up'] || 'CmdOrCtrl+Shift+Up'
+    )
+    document.querySelector(
+        '#settings-accelerators_media-volume-down'
+    ).innerText = replaceAcceleratorText(
+        settingsAccelerators['media-volume-down'] || 'CmdOrCtrl+Shift+Down'
+    )
+}
 
-        keyBindings += validateKey(e)
-        console.log(keyBindings)
-    }
+function resetAcceleratorsText() {
+    document.querySelector('#modalEditAcceleratorKeys').innerText =
+        'Press any keys...'
+}
+
+document
+    .querySelector('#btn-accelerator-media-play-pause')
+    .addEventListener('click', () => {
+        typeAcceleratorSelected = 'media-play-pause'
+        resetAcceleratorsText()
+    })
+
+document
+    .querySelector('#btn-accelerator-media-track-next')
+    .addEventListener('click', () => {
+        typeAcceleratorSelected = 'media-track-next'
+        resetAcceleratorsText()
+    })
+
+document
+    .querySelector('#btn-accelerator-media-track-previous')
+    .addEventListener('click', () => {
+        typeAcceleratorSelected = 'media-track-previous'
+        resetAcceleratorsText()
+    })
+
+document
+    .querySelector('#btn-accelerator-media-track-like')
+    .addEventListener('click', () => {
+        typeAcceleratorSelected = 'media-track-like'
+        resetAcceleratorsText()
+    })
+
+document
+    .querySelector('#btn-accelerator-media-track-dislike')
+    .addEventListener('click', () => {
+        typeAcceleratorSelected = 'media-track-dislike'
+        resetAcceleratorsText()
+    })
+
+document
+    .querySelector('#btn-accelerator-media-volume-up')
+    .addEventListener('click', () => {
+        typeAcceleratorSelected = 'media-volume-up'
+        resetAcceleratorsText()
+    })
+
+document
+    .querySelector('#btn-accelerator-media-volume-down')
+    .addEventListener('click', () => {
+        typeAcceleratorSelected = 'media-volume-down'
+        resetAcceleratorsText()
+    })
+
+document.querySelector('#saveAccelerator').addEventListener('click', () => {
+    ipc.send('change-accelerator', {
+        type: typeAcceleratorSelected,
+        oldValue: settingsAccelerators[typeAcceleratorSelected],
+        newValue: keyBindings,
+    })
+
+    settingsAccelerators[typeAcceleratorSelected] = keyBindings
+
+    settingsProvider.set('settings-accelerators', settingsAccelerators)
+
+    loadCustomKeys()
 })

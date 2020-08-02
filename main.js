@@ -47,7 +47,9 @@ let mainWindow,
     lastTrackId,
     lastTrackProgress,
     doublePressPlayPause,
-    updateTrackInfoTimeout
+    updateTrackInfoTimeout,
+    activityIsPaused,
+    activityLikeStatus
 
 let isFirstTime = false
 
@@ -97,7 +99,7 @@ if (settingsProvider.get('settings-discord-rich-presence')) {
     discordRPC.start()
 }
 
-if (settingsProvider.get('has-updated')) {
+if (settingsProvider.get('has-updated') == true) {
     setTimeout(() => {
         console.log('has-updated')
         ipcMain.emit('window', { command: 'show-changelog' })
@@ -127,6 +129,10 @@ if (isMac()) {
     )
     const menu = Menu.buildFromTemplate(statusBarMenu)
     Menu.setApplicationMenu(menu)
+}
+
+if (settingsProvider.get('settings-disable-hardware-acceleration')) {
+    app.disableHardwareAcceleration()
 }
 
 /* Functions ============================================================================= */
@@ -363,17 +369,24 @@ function createWindow() {
         var duration = trackInfo.duration
         var cover = trackInfo.cover
         var nowPlaying = `${title} - ${author}`
-        // logDebug(nowPlaying)
 
         if (title && author) {
             discordRPC.setActivity(getAll())
             rainmeterNowPlaying.setActivity(getAll())
             mprisProvider.setActivity(getAll())
 
-            mediaControl.createThumbar(
-                mainWindow,
-                infoPlayerProvider.getAllInfo()
-            )
+            if (
+                playerInfo.isPaused != activityIsPaused ||
+                playerInfo.likeStatus != activityLikeStatus
+            ) {
+                mediaControl.createThumbar(
+                    mainWindow,
+                    infoPlayerProvider.getAllInfo()
+                )
+
+                activityIsPaused = playerInfo.isPaused
+                activityLikeStatus = playerInfo.likeStatus
+            }
 
             mediaControl.setProgress(
                 mainWindow,
@@ -573,29 +586,93 @@ function createWindow() {
     globalShortcut.register('MediaNextTrack', function () {
         mediaControl.nextTrack(view)
     })
-/*
-    globalShortcut.register('CmdOrCtrl+Shift+Space', function () {
-        mediaControl.playPauseTrack(view)
-    })
 
-    globalShortcut.register('CmdOrCtrl+Shift+PageUp', function () {
-        mediaControl.nextTrack(view)
-    })
+    // Custom accelerators
+    let settingsAccelerator = settingsProvider.get('settings-accelerators')
 
-    globalShortcut.register('CmdOrCtrl+Shift+PageDown', function () {
-        mediaControl.previousTrack(view)
-    })
+    globalShortcut.register(
+        settingsAccelerator['media-play-pause'],
+        function () {
+            mediaControl.playPauseTrack(view)
+        }
+    )
 
-    globalShortcut.register('CmdOrCtrl+Shift+numadd', function () {
-        mediaControl.upVote(view)
-    })
+    globalShortcut.register(
+        settingsAccelerator['media-track-next'],
+        function () {
+            mediaControl.nextTrack(view)
+        }
+    )
 
-    globalShortcut.register('CmdOrCtrl+Shift+numsub', function () {
-        mediaControl.downVote(view)
-    })
-*/
-    ipcMain.on('restore-main-window', function () {
-        mainWindow.show()
+    globalShortcut.register(
+        settingsAccelerator['media-track-previous'],
+        function () {
+            mediaControl.previousTrack(view)
+        }
+    )
+
+    globalShortcut.register(
+        settingsAccelerator['media-track-like'],
+        function () {
+            mediaControl.upVote(view)
+        }
+    )
+
+    globalShortcut.register(
+        settingsAccelerator['media-track-dislike'],
+        function () {
+            mediaControl.downVote(view)
+        }
+    )
+
+    ipcMain.on('change-accelerator', (event, args) => {
+        try {
+            globalShortcut.unregister(args.oldValue)
+        } catch (_) {}
+
+        switch (args.type) {
+            case 'media-play-pause':
+                globalShortcut.register(args.newValue, () => {
+                    mediaControl.playPauseTrack(view)
+                })
+                break
+
+            case 'media-track-next':
+                globalShortcut.register(args.newValue, () => {
+                    mediaControl.nextTrack(view)
+                })
+                break
+
+            case 'media-track-previous':
+                globalShortcut.register(args.newValue, () => {
+                    mediaControl.previousTrack(view)
+                })
+                break
+
+            case 'media-track-like':
+                globalShortcut.register(args.newValue, () => {
+                    mediaControl.upVote(view)
+                })
+                break
+
+            case 'media-track-unlike':
+                globalShortcut.register(args.newValue, () => {
+                    mediaControl.downVote(view)
+                })
+                break
+
+            case 'media-volume-up':
+                globalShortcut.register(args.newValue, () => {
+                    mediaControl.volumeUp(view)
+                })
+                break
+
+            case 'media-volume-down':
+                globalShortcut.register(args.newValue, () => {
+                    mediaControl.volumeDown(view)
+                })
+                break
+        }
     })
 
     ipcMain.handle('invoke-all-info', async (event, args) => {
@@ -798,6 +875,8 @@ function createWindow() {
                 break
 
             case 'restore-main-window':
+                miniplayer.close()
+                miniplayer = undefined
                 mainWindow.show()
                 break
 
@@ -936,7 +1015,7 @@ function createWindow() {
 /*
             globalShortcut.register('CmdOrCtrl+M', function () {
                 miniplayer.close()
-                miniplayer = null
+                miniplayer = undefined
                 mainWindow.show()
             })
 */            
@@ -1408,7 +1487,7 @@ if (!gotTheLock) {
 
             setInterval(function () {
                 updater.checkUpdate(mainWindow, view)
-            }, 6 * 60 * 60 * 1000)
+            }, 24 * 60 * 60 * 1000)
         }
 
         ipcMain.emit('ready', app)
@@ -1563,6 +1642,8 @@ const mediaControl = require('./src/providers/mediaProvider')
 const tray = require('./src/providers/trayProvider')
 const updater = require('./src/providers/updateProvider')
 const analytics = require('./src/providers/analyticsProvider')
+const { player } = require('./src/providers/mprisProvider')
+const { listen } = require('socket.io')
 
 analytics.setEvent('main', 'start', 'v' + app.getVersion(), app.getVersion())
 analytics.setEvent('main', 'os', process.platform, process.platform)
