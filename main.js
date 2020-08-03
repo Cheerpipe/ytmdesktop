@@ -17,6 +17,11 @@ const isDev = require('electron-is-dev')
 const ClipboardWatcher = require('electron-clipboard-watcher')
 const electronLocalshortcut = require('electron-localshortcut')
 
+const { calcYTViewSize } = require('./src/utils/calcYTViewSize')
+const { isWindows, isMac, isLinux } = require('./src/utils/systemInfo')
+const { checkWindowPosition, doBehavior } = require('./src/utils/window')
+const fileSystem = require('./src/utils/fileSystem')
+
 const __ = require('./src/providers/translateProvider')
 const assetsProvider = require('./src/providers/assetsProvider')
 const scrobblerProvider = require('./src/providers/scrobblerProvider')
@@ -27,12 +32,6 @@ const rainmeterNowPlaying = require('./src/providers/rainmeterNowPlaying')
 const companionServer = require('./src/providers/companionServer')
 const discordRPC = require('./src/providers/discordRpcProvider')
 const mprisProvider = require('./src/providers/mprisProvider')
-
-const { calcYTViewSize } = require('./src/utils/calcYTViewSize')
-const { isWindows, isMac, isLinux } = require('./src/utils/systemInfo')
-const { checkWindowPosition, doBehavior } = require('./src/utils/window')
-const fileSystem = require('./src/utils/fileSystem')
-
 /* Variables =========================================================================== */
 const defaultUrl = 'https://music.youtube.com'
 
@@ -49,7 +48,8 @@ let mainWindow,
     doublePressPlayPause,
     updateTrackInfoTimeout,
     activityIsPaused,
-    activityLikeStatus
+    activityLikeStatus,
+    windowsMediaProvider
 
 let isFirstTime = false
 
@@ -105,6 +105,10 @@ if (settingsProvider.get('has-updated') == true) {
         ipcMain.emit('window', { command: 'show-changelog' })
     }, 2000)
     settingsProvider.set('has-updated', false)
+}
+
+if (isWindows()) {
+    windowsMediaProvider = require('./src/providers/windowsMediaProvider')
 }
 
 if (isLinux()) {
@@ -322,7 +326,13 @@ function createWindow() {
     view.webContents.on('media-started-playing', function () {
         if (!infoPlayerProvider.hasInitialized()) {
             infoPlayerProvider.init(view)
-            mprisProvider.setRealPlayer(infoPlayerProvider) //this lets us keep track of the current time in playback.
+            if (isLinux()) {
+                mprisProvider.setRealPlayer(infoPlayerProvider) //this lets us keep track of the current time in playback.
+            }
+        }
+
+        if (isWindows()) {
+            windowsMediaProvider.init(view)
         }
 
         if (isMac()) {
@@ -386,6 +396,10 @@ function createWindow() {
 
                 activityIsPaused = playerInfo.isPaused
                 activityLikeStatus = playerInfo.likeStatus
+
+                if (isWindows()) {
+                    windowsMediaProvider.setPlaybackStatus(playerInfo.isPaused)
+                }
             }
 
             mediaControl.setProgress(
@@ -446,6 +460,15 @@ function createWindow() {
                     settingsProvider.get('settings-show-notifications')
                 ) {
                     tray.balloon(title, author, cover, iconDefault)
+                }
+
+                if (isWindows()) {
+                    windowsMediaProvider.setPlaybackData(
+                        title,
+                        author,
+                        cover,
+                        album
+                    )
                 }
             }
 
@@ -938,15 +961,21 @@ function createWindow() {
                 modal: false,
                 frame: false,
                 center: false,
-                resizable: false,
+                resizable: settingsProvider.get(
+                    'settings-miniplayer-resizable'
+                ),
                 alwaysOnTop: settingsProvider.get(
                     'settings-miniplayer-always-top'
                 ),
-                backgroundColor: '#000000',
+                width: settingsProvider.get('settings-miniplayer-size'),
+                height: settingsProvider.get('settings-miniplayer-size'),
+                backgroundColor: '#232323',
                 minWidth: 100,
                 minHeight: 100,
                 autoHideMenuBar: true,
-                skipTaskbar: false,
+                skipTaskbar: !settingsProvider.get(
+                    'settings-miniplayer-show-task'
+                ),
                 webPreferences: {
                     nodeIntegration: true,
                 },
@@ -962,30 +991,32 @@ function createWindow() {
             switch (settingsProvider.get('settings-miniplayer-size')) {
                 case '1':
                     miniplayer.setSize(170, 170)
+                    settingsProvider.set('settings-miniplayer-size', 170)
                     break
 
                 case '2':
                     miniplayer.setSize(200, 200)
+                    settingsProvider.set('settings-miniplayer-size', 200)
                     break
 
                 case '3':
                     miniplayer.setSize(230, 230)
+                    settingsProvider.set('settings-miniplayer-size', 230)
                     break
 
                 case '4':
                     miniplayer.setSize(260, 260)
+                    settingsProvider.set('settings-miniplayer-size', 260)
                     break
 
                 case '5':
                     miniplayer.setSize(290, 290)
+                    settingsProvider.set('settings-miniplayer-size', 290)
                     break
 
                 case '6':
                     miniplayer.setSize(320, 320)
-                    break
-
-                default:
-                    miniplayer.setSize(200, 200)
+                    settingsProvider.set('settings-miniplayer-size', 320)
                     break
             }
 
@@ -1009,6 +1040,21 @@ function createWindow() {
                         y: position[1],
                     })
                 }, 1000)
+            })
+
+            let storeMiniplayerSizeTimer
+            miniplayer.on('resize', function (e) {
+                let size = miniplayer.getSize()
+                if (storeMiniplayerSizeTimer) {
+                    clearTimeout(storeMiniplayerSizeTimer)
+                }
+                storeMiniplayerSizeTimer = setTimeout(() => {
+                    settingsProvider.set(
+                        'settings-miniplayer-size',
+                        Math.min(...size)
+                    )
+                    miniplayer.setSize(Math.min(...size), Math.min(...size))
+                }, 500)
             })
 
             mainWindow.hide()
@@ -1643,7 +1689,6 @@ const tray = require('./src/providers/trayProvider')
 const updater = require('./src/providers/updateProvider')
 const analytics = require('./src/providers/analyticsProvider')
 const { player } = require('./src/providers/mprisProvider')
-const { listen } = require('socket.io')
 
 analytics.setEvent('main', 'start', 'v' + app.getVersion(), app.getVersion())
 analytics.setEvent('main', 'os', process.platform, process.platform)

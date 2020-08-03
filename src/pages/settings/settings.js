@@ -121,9 +121,10 @@ document.addEventListener('DOMContentLoaded', function () {
     )
 
     initElement('settings-miniplayer-always-top', 'click')
+    initElement('settings-miniplayer-resizable', 'click')
+    initElement('settings-miniplayer-show-task', 'click')
     initElement('settings-miniplayer-always-show-controls', 'click')
     initElement('settings-miniplayer-paint-controls', 'click')
-    initElement('settings-miniplayer-size', 'change')
     initElement('settings-enable-taskbar-progressbar', 'click')
 
     mInit()
