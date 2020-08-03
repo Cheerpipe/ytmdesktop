@@ -23,26 +23,14 @@ electronDownload:
 
 win:
   icon: src/assets/favicon.ico
-  publish:
-    provider: generic
-    url: 'https://dl.ytmdesktop.app/win'
-    channel: latest
 
 mac:
-  icon: src/assets
+  icon: src/assets/favicon.icns
   category: public.app-category.music
   darkModeSupport: true
   target:
     - dmg
-  publish:
-    provider: generic
-    url: 'https://dl.ytmdesktop.app/mac'
-    channel: latest
 
 linux:
   icon: src/assets/favicon.png
   category: AudioVideo
-  publish:
-    provider: generic
-    url: 'https://dl.ytmdesktop.app/lin'
-    channel: latest
